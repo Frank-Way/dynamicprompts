@@ -24,7 +24,7 @@ def _parse_structured_file_list(value: list[Any]) -> Iterable[str | WildcardItem
         if isinstance(item, str):
             # See if the item _could_ have a prefix weight before attempting to parse.
             if item[0].isdigit() and "::" in item:
-                weight_text, _, content = item.rpartition("::")
+                weight_text, _, content = item.partition("::")
                 try:
                     yield WildcardItem(content=content, weight=float(weight_text))
                     continue
