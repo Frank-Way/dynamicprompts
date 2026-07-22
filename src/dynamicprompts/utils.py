@@ -90,10 +90,17 @@ def choose_without_replacement(
     elif len(values) == 1:
         return values
     else:
-        chosen_values = []
-        for _ in range(num_choices):
-            chosen = rand.choices(values, weights=weights, k=1)[0]
-            chosen_values.append(chosen)
-            weights.remove(weights[values.index(chosen)])
-            values.remove(chosen)
-        return chosen_values
+         chosen_values = []
+         for _ in range(num_choices):
+             if not values:
+                 break
+             chosen = rand.choices(values, weights=weights, k=1)[0]
+             chosen_values.append(chosen)
+             # Find all indices where values[i] == chosen to remove all duplicates
+             # of the selected value, ensuring uniqueness in the result.
+             indices_to_remove = [i for i, v in enumerate(values) if v == chosen]
+             # Remove from largest index to smallest to avoid index shifting issues
+             for i in reversed(indices_to_remove):
+                 values.pop(i)
+                 weights.pop(i)
+         return chosen_values
