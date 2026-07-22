@@ -554,10 +554,21 @@ def parse(
     if prompt.isalnum():  # no need to actually parse anything
         return LiteralCommand(prompt)
 
-    tokens = get_cached_parser(parser_config).parse_string(
-        prompt,
-        parse_all=True,
-    )
+    try:
+        tokens = get_cached_parser(parser_config).parse_string(
+            prompt,
+            parse_all=True,
+        )
+    except Exception as exc:
+        # Get the original type dynamically
+        exc_type = type(exc)
+        
+        # Prefix the message safely
+        orig_msg = exc.args[0] if exc.args else ""
+        new_msg = f"{prompt}: {orig_msg}"
+        
+        # Re-raise with the exact same exception class
+        raise exc_type(new_msg) from None
     if len(tokens) != 1:
         raise ValueError(f"Could not parse prompt {prompt!r}")
 
