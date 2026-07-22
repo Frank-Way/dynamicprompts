@@ -17,7 +17,6 @@ from dynamicprompts.commands.variable_commands import (
 from dynamicprompts.sampling_context import SamplingContext
 from dynamicprompts.sampling_result import SamplingResult
 from dynamicprompts.types import ResultGen
-from dynamicprompts.utils import rotate_and_join
 
 logger = logging.getLogger(__name__)
 
@@ -72,11 +71,28 @@ class Sampler:
         command: SequenceCommand,
         context: SamplingContext,
     ) -> ResultGen:
-        tokens, context = context.process_variable_assignments(command.tokens)
-        sub_generators = [context.generator_from_command(c) for c in tokens]
-
         while True:
-            yield rotate_and_join(sub_generators, separator=command.separator)
+            results: list[SamplingResult] = []
+            current_context = context
+            for token in command.tokens:
+                if isinstance(token, VariableAssignmentCommand):
+                    # Evaluate the assignment and update context
+                    value = current_context.process_variable_assignment(token)
+                    current_context = current_context.with_variables(
+                        {token.name: value},
+                    )
+                    # Include an empty result carrying the variable info
+                    results.append(
+                        SamplingResult(text="", variables={token.name: value}),
+                    )
+                else:
+                    result = next(current_context.generator_from_command(token))
+                    results.append(result)
+                    if result.variables:
+                        current_context = current_context.with_variables(
+                            result.variables,
+                        )
+            yield SamplingResult.joined(results, separator=command.separator)
 
     def _get_literal(
         self,

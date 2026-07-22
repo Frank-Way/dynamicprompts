@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Iterable
 
+from dynamicprompts.commands import Command
 from dynamicprompts.commands.wrap_command import split_wrapper_string
 
 
@@ -13,23 +14,29 @@ class SamplingResult:
     """
 
     text: str
+    variables: dict[str, Command] = dataclasses.field(default_factory=dict)
 
     def __str__(self):
         return self.text
 
     @property
-    def dedupe_key(self) -> tuple[str]:
+    def dedupe_key(self) -> tuple:
         # Used by e.g. combinatorial sampling's fragment deduplication.
         # Please make sure to update this if you add more fields to SamplingResult.
-        return (self.text,)
+        var_key = tuple(sorted(self.variables.keys()))
+        return (self.text, var_key)
 
     def whitespace_squashed(self) -> SamplingResult:
         from dynamicprompts.utils import squash_whitespace
 
-        return dataclasses.replace(self, text=squash_whitespace(self.text))
+        return dataclasses.replace(
+            self,
+            text=squash_whitespace(self.text),
+            variables=self.variables,
+        )
 
     def text_replaced(self, new_text: str) -> SamplingResult:
-        return dataclasses.replace(self, text=new_text)
+        return dataclasses.replace(self, text=new_text, variables=self.variables)
 
     def as_wrapper(self):
         """
@@ -66,7 +73,12 @@ class SamplingResult:
 
         joined = separator.join(r.text for r in results_list)
 
+        # Merge variables from all sub-results (later wins)
+        merged_variables: dict[str, Command] = {}
+        for r in results_list:
+            merged_variables.update(r.variables)
+
         if separator:
             joined = removeprefix(joined, separator)
             joined = removesuffix(joined, separator)
-        return cls(text=joined)
+        return cls(text=joined, variables=merged_variables)
